@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=AIC8800 WiFi Mode (Monitor / Normal)
+GenericName=WiFi Monitor Mode Toggle
+Comment=Switch the AIC8800 USB adapter between Monitor and Normal WiFi (Bluetooth unaffected)
+Exec=aic-wifi-mode
+Icon=network-wireless
+Terminal=false
+Categories=Network;
+Keywords=monitor;wifi;aic8800;sniff;airodump;tcpdump;

@@ -1,0 +1,52 @@
+#!/bin/bash
+# GUI menu to toggle the AIC8800D80 USB adapter between Monitor and Normal WiFi.
+# Uses kdialog (KDE) for the menu and pkexec for privilege elevation.
+# Bluetooth is independent of WiFi mode and stays working throughout.
+WORKER=/var/lib/aic8800/aic-mode-worker.sh
+
+if ! command -v kdialog >/dev/null 2>&1; then
+    command -v zenity >/dev/null 2>&1 && zenity --error --text="kdialog not found"
+    exit 1
+fi
+if [ ! -x "$WORKER" ]; then
+    kdialog --error "Worker script missing: $WORKER"
+    exit 1
+fi
+
+IFACE=$("$WORKER" status 2>/dev/null | sed -n 's/^WiFi interface *: *//p' | head -1)
+IFACE=${IFACE:-wlan_cudy}
+
+while true; do
+    MODE=$("$WORKER" status 2>/dev/null | sed -n 's/^Mode *: *//p' | head -1)
+    ACT=$(kdialog --title "AIC8800 WiFi Mode" \
+        --menu "Interface: $IFACE     Current mode: ${MODE:-unknown}\n\nChoose an action:" \
+        enable  "Enable Monitor Mode  (packet capture / airodump)" \
+        disable "Return to Normal WiFi  (Bluetooth keeps working)" \
+        status  "Show detailed status") || exit 0
+
+    case "$ACT" in
+        enable)
+            CHAN=$(kdialog --title "Monitor channel" \
+                --inputbox "Lock capture to a channel number (e.g. 1, 6, 36, 149).\n\nLeave blank to let airodump-ng hop across channels:" "6") || continue
+            OUT=$(pkexec "$WORKER" monitor "$CHAN" 2>&1)
+            kdialog --title "Monitor Mode ENABLED" --msgbox "$OUT
+
+Normal WiFi is OFF until you switch back.
+Bluetooth is NOT affected.
+
+Capture examples (in a terminal):
+  sudo tcpdump -i $IFACE -e
+  sudo airodump-ng $IFACE"
+            ;;
+        disable)
+            OUT=$(pkexec "$WORKER" managed 2>&1)
+            kdialog --title "Normal WiFi RESTORED" --msgbox "$OUT
+
+NetworkManager is reconnecting to your saved network.
+Bluetooth was never affected."
+            ;;
+        status)
+            kdialog --title "AIC8800 Status" --msgbox "$("$WORKER" status 2>&1)"
+            ;;
+    esac
+done

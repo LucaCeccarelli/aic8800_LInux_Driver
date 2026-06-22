@@ -1,0 +1,21 @@
+[Unit]
+Description=Load AIC8800D80 USB WiFi+BT driver (out-of-tree, /var/lib/aic8800)
+After=systemd-udev-settle.service
+Before=NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Only load if the module was built for the running kernel (vermagic guard).
+ExecStartPre=/usr/bin/bash -c '[ "$(cat /var/lib/aic8800/built-for-kernel)" = "$(uname -r)" ] || { echo "aic8800: module built for $(cat /var/lib/aic8800/built-for-kernel), running $(uname -r); skipping"; exit 1; }'
+# Idempotent: skip insmod if already loaded. aic_load_fw needs aic_fw_path because
+# the driver opens hardcoded firmware paths and ignores the kernel firmware_class.path.
+ExecStart=/usr/bin/bash -c 'lsmod | grep -q "^aic_load_fw" || insmod /var/lib/aic8800/aic_load_fw.ko aic_fw_path=/var/lib/firmware'
+ExecStart=/usr/bin/bash -c 'lsmod | grep -q "^aic8800_fdrv" || insmod /var/lib/aic8800/aic8800_fdrv.ko'
+# Stock btusb claims the Bluetooth (class e0) interface once firmware is uploaded.
+ExecStartPost=-/usr/bin/bash -c 'modprobe btusb'
+ExecStop=-/usr/bin/bash -c 'rmmod aic8800_fdrv'
+ExecStop=-/usr/bin/bash -c 'rmmod aic_load_fw'
+
+[Install]
+WantedBy=multi-user.target
