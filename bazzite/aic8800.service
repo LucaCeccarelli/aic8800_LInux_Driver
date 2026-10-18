@@ -8,6 +8,10 @@ Type=oneshot
 RemainAfterExit=yes
 # Only load if the module was built for the running kernel (vermagic guard).
 ExecStartPre=/usr/bin/bash -c '[ "$(cat /var/lib/aic8800/built-for-kernel)" = "$(uname -r)" ] || { echo "aic8800: module built for $(cat /var/lib/aic8800/built-for-kernel), running $(uname -r); skipping"; exit 1; }'
+# insmod does not resolve dependencies, so cfg80211 (the wireless stack that
+# aic8800_fdrv links against) must be loaded first, or insmod fails with
+# "Unknown symbol" at boot.
+ExecStart=/usr/bin/bash -c 'modprobe cfg80211'
 # Idempotent: skip insmod if already loaded. aic_load_fw needs aic_fw_path because
 # the driver opens hardcoded firmware paths and ignores the kernel firmware_class.path.
 ExecStart=/usr/bin/bash -c 'lsmod | grep -q "^aic_load_fw" || insmod /var/lib/aic8800/aic_load_fw.ko aic_fw_path=/var/lib/firmware'
